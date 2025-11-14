@@ -2,7 +2,6 @@
 (async function(){
   const map = L.map('map').setView([20, 0], 2);
 
-  // Protomaps vector layer
   const layer = protomapsL.leafletLayer({
     url: 'https://api.protomaps.com/tiles/v4/{z}/{x}/{y}.mvt?key=916a121e477f4a33',
     flavor: 'light',
@@ -18,7 +17,60 @@
     );
   }
 
-  // Geocode city+country using Nominatim
+  // ---------- AUTOCOMPLETE FOR COUNTRY & CITY ----------
+  const countryInput = document.getElementById('country');
+  const cityInput = document.getElementById('city');
+
+  let countries = [];
+  async function loadCountries() {
+    const res = await fetch('https://restcountries.com/v3.1/all');
+    const data = await res.json();
+    countries = data.map(c => c.name.common).sort();
+  }
+
+  // Country autocomplete
+  countryInput.addEventListener('input', () => {
+    const listId = 'country-list';
+    let datalist = document.getElementById(listId);
+    if (!datalist) {
+      datalist = document.createElement('datalist');
+      datalist.id = listId;
+      document.body.appendChild(datalist);
+      countryInput.setAttribute('list', listId);
+    }
+    const val = countryInput.value.toLowerCase();
+    datalist.innerHTML = countries
+      .filter(c => c.toLowerCase().includes(val))
+      .map(c => `<option value="${c}">`).join('');
+  });
+
+  // City autocomplete using Nominatim (free, no API key needed)
+  cityInput.addEventListener('input', async () => {
+    const country = countryInput.value;
+    if (!country) return;
+
+    const val = cityInput.value;
+    if (!val) return;
+
+    const listId = 'city-list';
+    let datalist = document.getElementById(listId);
+    if (!datalist) {
+      datalist = document.createElement('datalist');
+      datalist.id = listId;
+      document.body.appendChild(datalist);
+      cityInput.setAttribute('list', listId);
+    }
+
+    const url = `https://nominatim.openstreetmap.org/search?format=json&country=${encodeURIComponent(country)}&city=${encodeURIComponent(val)}&limit=10`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'AdoFansMap/1.0' } });
+    const data = await res.json();
+
+    datalist.innerHTML = data.map(c => `<option value="${c.display_name.split(',')[0]}">`).join('');
+  });
+
+  await loadCountries();
+
+  // ---------- EXISTING FUNCTIONS ----------
   async function geocodeLocation(city, country) {
     const spinner = document.createElement('div');
     spinner.className = 'spinner';
@@ -44,7 +96,6 @@
     markerLayer.clearLayers();
     const list = document.getElementById('fansList');
     list.innerHTML = '';
-
     document.getElementById('fanCount').innerText = `Total fans: ${fans.length}`;
 
     for (let f of fans) {
@@ -67,8 +118,8 @@
   }
 
   document.getElementById('addBtn').addEventListener('click', async () => {
-    const city = document.getElementById('city').value.trim();
-    const country = document.getElementById('country').value.trim();
+    const city = cityInput.value.trim();
+    const country = countryInput.value.trim();
     if (!city || !country) return alert('Please fill both city and country');
 
     const payload = {
@@ -88,15 +139,15 @@
     if (!r.ok) return alert('Error: '+(await r.json()).error);
 
     document.getElementById('name').value='';
-    document.getElementById('city').value='';
-    document.getElementById('country').value='';
+    cityInput.value='';
+    countryInput.value='';
     document.getElementById('message').value='';
 
     await loadFans();
     alert('Thanks — you are now on the map!');
   });
 
-  // Initial load + polling
   await loadFans();
   setInterval(loadFans, 10000);
+
 })();
