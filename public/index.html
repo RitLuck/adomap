@@ -1,13 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Ado Fans Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+<div id="map"></div>
+
 <aside id="panel">
   <h1>Ado Fans Map</h1>
   <p>Show where you are — add yourself to the map!</p>
   <p id="fanCount">Loading fans...</p>
-
-  <!-- Dark mode toggle -->
-  <label class="checkbox">
-    <input type="checkbox" id="darkModeToggle">
-    Dark Mode
-  </label>
 
   <label>Name (optional)</label>
   <input id="name" placeholder="Nickname or name" />
@@ -27,3 +33,9 @@
   <h2>Recent fans</h2>
   <div id="fansList">Loading...</div>
 </aside>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/protomaps-leaflet/dist/protomaps-leaflet.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
