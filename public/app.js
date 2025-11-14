@@ -28,7 +28,6 @@
     countries = data.map(c => c.name.common).sort();
   }
 
-  // Country autocomplete
   countryInput.addEventListener('input', () => {
     const listId = 'country-list';
     let datalist = document.getElementById(listId);
@@ -44,7 +43,6 @@
       .map(c => `<option value="${c}">`).join('');
   });
 
-  // City autocomplete using Nominatim (free, no API key needed)
   cityInput.addEventListener('input', async () => {
     const country = countryInput.value;
     if (!country) return;
@@ -70,26 +68,7 @@
 
   await loadCountries();
 
-  // ---------- EXISTING FUNCTIONS ----------
-  async function geocodeLocation(city, country) {
-    const spinner = document.createElement('div');
-    spinner.className = 'spinner';
-    spinner.innerText = 'Loading...';
-    document.getElementById('fansList').prepend(spinner);
-
-    const query = encodeURIComponent(`${city}, ${country}`);
-    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`;
-    const res = await fetch(url, { headers: { 'User-Agent': 'AdoFansMap/1.0' }});
-    const data = await res.json();
-
-    spinner.remove();
-
-    if (data && data[0]) {
-      return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
-    }
-    return null;
-  }
-
+  // ---------- LOAD FANS AND ADD TO MAP ----------
   async function loadFans(){
     const res = await fetch('/api/fans');
     const fans = await res.json();
@@ -106,13 +85,11 @@
                        ${escapeHtml(f.message||'')}`;
       list.appendChild(div);
 
-      if (f.city && f.country) {
-        const coords = await geocodeLocation(f.city, f.country);
-        if (coords) {
-          L.marker([coords.lat, coords.lng])
-            .bindPopup(`<strong>${escapeHtml(f.name||'Anonymous')}</strong><br>${escapeHtml(f.message||'')}`)
-            .addTo(markerLayer);
-        }
+      // Use lat/lng from database
+      if (f.lat != null && f.lng != null) {
+        L.marker([f.lat, f.lng])
+          .bindPopup(`<strong>${escapeHtml(f.name||'Anonymous')}</strong><br>${escapeHtml(f.message||'')}`)
+          .addTo(markerLayer);
       }
     }
   }

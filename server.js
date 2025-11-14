@@ -1,7 +1,6 @@
 // server.js
 const express = require('express');
 const pool = require('./database');
-const fetch = require('node-fetch'); // npm install node-fetch
 const path = require('path');
 
 const app = express();

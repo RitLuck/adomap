@@ -10,7 +10,7 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false } // needed on Render
 });
 
-// Create table if it doesn't exist, adding lat/lng columns
+// Create table if it doesn't exist
 (async () => {
   const client = await pool.connect();
   try {
@@ -21,9 +21,9 @@ const pool = new Pool({
         city TEXT NOT NULL,
         country TEXT NOT NULL,
         message TEXT,
+        hide_exact BOOLEAN DEFAULT TRUE,
         lat DOUBLE PRECISION,
         lng DOUBLE PRECISION,
-        hide_exact BOOLEAN DEFAULT TRUE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
