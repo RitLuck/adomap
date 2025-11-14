@@ -1,22 +1,33 @@
 // database.js
-const Database = require('better-sqlite3');
-const db = new Database('adofans.db');
+const { Pool } = require('pg');
 
+const pool = new Pool({
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT || 5432,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  ssl: { rejectUnauthorized: false } // needed on Render
+});
 
-// Create table if not exists
-db.prepare(`
-CREATE TABLE IF NOT EXISTS fans (
-id INTEGER PRIMARY KEY AUTOINCREMENT,
-name TEXT,
-city TEXT,
-country TEXT,
-message TEXT,
-lat REAL,
-lng REAL,
-hide_exact INTEGER DEFAULT 0,
-created_at TEXT
-)
-`).run();
+// Create table if it doesn't exist
+(async () => {
+  const client = await pool.connect();
+  try {
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS fans (
+        id SERIAL PRIMARY KEY,
+        name TEXT,
+        city TEXT NOT NULL,
+        country TEXT NOT NULL,
+        message TEXT,
+        hide_exact BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+  } finally {
+    client.release();
+  }
+})();
 
-
-module.exports = db;
+module.exports = pool;
