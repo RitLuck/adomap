@@ -1,38 +1,106 @@
-// server.js
-const express = require('express');
-const pool = require('./database');
-const path = require('path');
+(async function(){
+  // Initial map setup
+  let darkMode = false;
+  const map = L.map('map').setView([20, 0], 2);
 
-const app = express();
-app.use(express.json());
-app.use(express.static('public'));
+  // Protomaps layer (default light)
+  let layer = protomapsL.leafletLayer({
+    url: 'https://api.protomaps.com/tiles/v4/{z}/{x}/{y}.mvt?key=916a121e477f4a33',
+    flavor: 'light',
+    lang: 'en'
+  }).addTo(map);
 
-// Get all fans
-app.get('/api/fans', async (req, res) => {
-  try {
-    const { rows } = await pool.query('SELECT * FROM fans ORDER BY created_at DESC LIMIT 100');
-    res.json(rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  const markerLayer = L.layerGroup().addTo(map);
 
-// Add a fan
-app.post('/api/fans', async (req, res) => {
-  const { name, city, country, message, hide_exact } = req.body;
-  if (!city || !country) return res.status(400).json({ error: 'City and country required' });
-
-  try {
-    const { rows } = await pool.query(
-      `INSERT INTO fans (name, city, country, message, hide_exact) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [name || '', city, country, message || '', hide_exact ? true : false]
+  function escapeHtml(s) {
+    return String(s||'').replace(/[&<>'"]/g, c =>
+      ({ '&':'&amp;','<':'&lt;','>':'&gt;','\'':'&#39;','"':'&quot;' }[c])
     );
-    res.json({ id: rows[0].id });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
   }
-});
 
-// Start server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  async function geocodeLocation(city, country) {
+    const query = encodeURIComponent(`${city}, ${country}`);
+    const url = `https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'AdoFansMap/1.0' }});
+    const data = await res.json();
+    if (data && data[0]) {
+      return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+    }
+    return null;
+  }
+
+  async function loadFans(){
+    const res = await fetch('/api/fans');
+    const fans = await res.json();
+    markerLayer.clearLayers();
+    const list = document.getElementById('fansList');
+    list.innerHTML = '';
+    document.getElementById('fanCount').innerText = `Total fans: ${fans.length}`;
+
+    for (let f of fans) {
+      const div = document.createElement('div');
+      div.className = 'fan-item';
+      div.innerHTML = `<strong>${escapeHtml(f.name||'Anonymous')}</strong><br>
+                       <small class='gray'>${escapeHtml(f.city||'')}${f.city && f.country ? ', ' : ''}${escapeHtml(f.country||'')}</small><br>
+                       ${escapeHtml(f.message||'')}`;
+      list.appendChild(div);
+
+      if (f.city && f.country) {
+        const coords = await geocodeLocation(f.city, f.country);
+        if (coords) {
+          L.marker([coords.lat, coords.lng])
+            .bindPopup(`<strong>${escapeHtml(f.name||'Anonymous')}</strong><br>${escapeHtml(f.message||'')}`)
+            .addTo(markerLayer);
+        }
+      }
+    }
+  }
+
+  document.getElementById('addBtn').addEventListener('click', async () => {
+    const city = document.getElementById('city').value.trim();
+    const country = document.getElementById('country').value.trim();
+    if (!city || !country) return alert('Please fill both city and country');
+
+    const payload = {
+      name: document.getElementById('name').value,
+      city,
+      country,
+      message: document.getElementById('message').value,
+      hide_exact: true
+    };
+
+    const r = await fetch('/api/fans', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    if (!r.ok) return alert('Error: '+(await r.json()).error);
+
+    document.getElementById('name').value='';
+    document.getElementById('city').value='';
+    document.getElementById('country').value='';
+    document.getElementById('message').value='';
+
+    await loadFans();
+    alert('Thanks — you are now on the map!');
+  });
+
+  // Dark mode toggle
+  document.getElementById('darkModeToggle').addEventListener('change', e => {
+    darkMode = e.target.checked;
+    document.body.classList.toggle('dark', darkMode);
+
+    // Remove old layer and add new flavored layer
+    map.removeLayer(layer);
+    layer = protomapsL.leafletLayer({
+      url: 'https://api.protomaps.com/tiles/v4/{z}/{x}/{y}.mvt?key=916a121e477f4a33',
+      flavor: darkMode ? 'dark' : 'light',
+      lang: 'en'
+    }).addTo(map);
+  });
+
+  // Initial load + polling
+  await loadFans();
+  setInterval(loadFans, 10000);
+})();
