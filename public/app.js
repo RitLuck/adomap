@@ -20,10 +20,18 @@
 
   // Geocode city+country using Nominatim
   async function geocodeLocation(city, country) {
+    const spinner = document.createElement('div');
+    spinner.className = 'spinner';
+    spinner.innerText = 'Loading...';
+    document.getElementById('fansList').prepend(spinner);
+
     const query = encodeURIComponent(`${city}, ${country}`);
     const url = `https://nominatim.openstreetmap.org/search?format=json&q=${query}&limit=1`;
     const res = await fetch(url, { headers: { 'User-Agent': 'AdoFansMap/1.0' }});
     const data = await res.json();
+
+    spinner.remove();
+
     if (data && data[0]) {
       return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
     }
@@ -36,6 +44,8 @@
     markerLayer.clearLayers();
     const list = document.getElementById('fansList');
     list.innerHTML = '';
+
+    document.getElementById('fanCount').innerText = `Total fans: ${fans.length}`;
 
     for (let f of fans) {
       const div = document.createElement('div');
@@ -66,7 +76,7 @@
       city,
       country,
       message: document.getElementById('message').value,
-      hide_exact: true // always hide exact coordinates
+      hide_exact: true
     };
 
     const r = await fetch('/api/fans', {
